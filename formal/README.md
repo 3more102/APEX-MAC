@@ -1,5 +1,20 @@
 # APEX-MAC Formal / Assertion Plan
 
+## Combinational arithmetic proof
+
+The symbolic harness is in formal/apex_mac_arithmetic_formal.sv. Run it with:
+
+    make formal-test
+
+The Yosys SAT job attempts to prove, for all signed Q1.15 operand pairs and symbolic 48-bit budget/spent values:
+- The INT4 product-error bound dominates the actual absolute product error.
+- The INT8 product-error bound dominates the actual absolute product error.
+- The INT8 bound is no larger than the INT4 bound.
+- The precision controller selects INT4 / INT8 only when the selected bound fits the remaining budget.
+- Exact INT16 has zero quantization-error cost.
+
+A successful combinational proof does not prove sequential protocol behavior, accumulator overflow handling, physical timing, or power.
+
 ## Assertion source
 
 - `apex_mac_sva.sv`: bindable SystemVerilog Assertions for the current single-lane RTL.
@@ -28,7 +43,7 @@ The normal CI runs:
 2. Directed Icarus Verilog RTL simulation.
 3. Deterministic randomized Icarus Verilog RTL simulation checked against an independent testbench reference implementation.
 
-The bindable SVA file is not yet part of the Icarus flow because Icarus does not support the full concurrent-SVA/bind feature set used here. It has **not yet been run through a formal engine**. Do not describe the design as formally proven until a supported simulator/formal tool executes the properties and proof assumptions/results are archived.
+The bindable SVA file is not part of the Icarus flow because Icarus does not support the full concurrent-SVA/bind feature set used here. The sequential SVA properties have **not yet been run through a formal engine**. The combinational arithmetic proof is a separate, narrower proof and must not be described as a full sequential proof.
 
 ## Next formal milestone
 
