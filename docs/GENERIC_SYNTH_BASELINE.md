@@ -4,93 +4,59 @@
 
 - Tool: Yosys 0.52 (fee39a3284c90249e1d9684cf6944ffbbcbb8f90)
 - Branch: research/reference-model-rtl-foundation
-- Corrected RTL commit: 81999669e8efb96a074ee8d0d5ee8c21bcae8e8c
+- RTL commit: 55e7d287c9cb13d0ef3b1dd1f65f5336b1b25fef
 - Target top: apex_mac_top
 - Flow: native SystemVerilog frontend, pre-synthesis stat/netlist, generic synth -flatten, check -assert, post-synthesis stat/netlist
-- CI run: https://github.com/3more102/APEX-MAC/actions/runs/43924023058
-- Archived reports: https://github.com/3more102/APEX-MAC/actions/runs/43924023058/artifacts/14254579532
+- CI run: https://github.com/3more102/APEX-MAC/actions/runs/43926481440
+- Archived reports: https://github.com/3more102/APEX-MAC/actions/runs/43926481440/artifacts/14256301875
 
 ## Multiplier-width audit
 
-The first RTL version explicitly sign-extended each 16-bit quantized operand to 32 bits before multiplication. The pre-synthesis Yosys netlist consequently contained one signed 32×32 multiplier with a 32-bit result.
+The native baseline uses one signed 16×16 multiplier with a 32-bit result. The pre-synthesis Yosys netlist confirms A_WIDTH=16, B_WIDTH=16, Y_WIDTH=32, A_SIGNED=1 and B_SIGNED=1.
 
-The RTL was corrected to multiply the original signed 16-bit operands directly. The corrected pre-synthesis netlist confirms:
+The precision-tiled variant uses sixteen signed 5×5 multipliers with 9-bit results, one for each pair of radix-16 operand digits. All four variants pass Yosys check -assert.
 
-| Parameter | Corrected result |
-|---|---:|
-| A_WIDTH | 16 |
-| B_WIDTH | 16 |
-| Y_WIDTH | 32 |
-| A_SIGNED | 1 |
-| B_SIGNED | 1 |
-| Number of $mul cells | 1 |
+## Four-variant generic synthesis comparison
 
-This preserves the complete signed 16×16 product in 32 bits without unnecessarily widening the multiplier inputs.
+**Generic mapped cell counts:**
 
-## Corrected generic mapped result
+| Variant | Generic mapped cells | Wires | Wire bits |
+|---|---:|---:|---:|
+| baseline | 5,457 | 5,326 | 6,711 |
+| operand_isolated | 5,489 | 5,358 | 6,743 |
+| tiled | 5,655 | 5,541 | 7,112 |
+| tiled_isolated | 5,678 | 5,560 | 7,071 |
 
-**5,467 generic cells**
-
-| Metric | Result |
-|---|---:|
-| Generic mapped cells | 5,467 |
-| Wires | 5,336 |
-| Wire bits | 6,721 |
-| Public wires | 53 |
-| Public wire bits | 1,343 |
-| Ports | 14 |
-| Port bits | 186 |
-| Memories | 0 |
-| Processes after synthesis | 0 |
-| Sequential cells | 93 |
-
-### Cell breakdown
+### Baseline cell breakdown
 
 | Cell type | Count |
 |---|---:|
-| $_ANDNOT_ | 1,995 |
-| $_AND_ | 101 |
+| $_ANDNOT_ | 1,991 |
+| $_AND_ | 100 |
 | $_DFFE_PN0P_ | 91 |
 | $_DFFE_PN1P_ | 1 |
 | $_DFF_PN0_ | 1 |
 | $_MUX_ | 180 |
-| $_NAND_ | 140 |
-| $_NOR_ | 526 |
-| $_NOT_ | 223 |
-| $_ORNOT_ | 282 |
-| $_OR_ | 539 |
-| $_XNOR_ | 414 |
-| $_XOR_ | 971 |
+| $_NAND_ | 143 |
+| $_NOR_ | 523 |
+| $_NOT_ | 202 |
+| $_ORNOT_ | 289 |
+| $_OR_ | 544 |
+| $_XNOR_ | 432 |
+| $_XOR_ | 957 |
 | $scopeinfo | 3 |
 
-Yosys reported zero problems in the post-synthesis check -assert pass.
+### Interpretation
 
-## Interpretation
+Relative to the native baseline:
+- Operand isolation adds 32 generic cells (+0.59%).
+- The tiled multiplier adds 198 generic cells (+3.63%).
+- Tiled plus operand isolation adds 221 generic cells (+4.05%).
 
-The previous 32×32-inferred version mapped to 5,469 generic cells; the corrected 16×16-input version maps to 5,467. This very small difference indicates that Yosys had already optimized much of the sign extension during technology-independent synthesis. The correction is still important because it makes the intended arithmetic width explicit and removes unnecessary RTL widening.
+These generic counts are useful for early RTL-variant screening. They are not ASIC standard-cell area, timing, power or signoff results. No PDK library was used. There are no routed parasitics, clock-tree implementation, activity-based power estimates, DRC, LVS or GDSII in this run.
 
-These generic cell counts are **not ASIC standard-cell area**. No PDK library was used. The results contain no routed parasitics, timing constraints, clock-tree implementation, activity-based power estimate, DRC, LVS or GDSII.
-
-The current design still uses one inferred 16×16 multiplier. Reduced modes quantize and align the operands, but the RTL does not yet instantiate a structurally gated partial-product architecture. No area or energy saving from the precision modes should be claimed.
-
-## Operand-isolation variant
-
-The same Yosys 0.52 script also synthesizes ENABLE_OPERAND_ISOLATION=1:
-
-| Metric | Baseline | Operand-isolated |
-|---|---:|---:|
-| Generic mapped cells | 5,467 | 5,500 |
-| Wires | 5,336 | 5,369 |
-| Wire bits | 6,721 | 6,754 |
-| Multiplier | signed 16×16 → 32 | signed 16×16 → 32 |
-
-The isolated variant adds 33 generic mapped cells (+0.60%). Both variants preserve one signed 16×16 multiplier. The separate [operand-isolation experiment](OPERAND_ISOLATION_EXPERIMENT.md) measures an 88.73% reduction in bit toggles at the multiplier input ports for a deterministic idle-heavy trace. That is an input-activity proxy, not measured power.
+See [MULTIPLIER_VARIANTS.md](MULTIPLIER_VARIANTS.md) for the architecture comparison and [OPERAND_ISOLATION_EXPERIMENT.md](OPERAND_ISOLATION_EXPERIMENT.md) for the separate VCD input-toggle experiment.
 
 ## Next comparison
 
-Use the same Yosys version, script and top-level interface to compare:
-1. Current inferred 16×16 multiplier baseline.
-2. Operand-isolated multiplier variant.
-3. Structurally segmented / precision-gated multiplier variant.
-
-Keep the reference model and all directed/randomized tests unchanged. Compare generic cell counts as an early screening metric, then use the selected PDK and OpenROAD for actual ASIC area, timing and power evaluation.
+Use the same Yosys version, script and top-level interface for further variants. Keep the reference model and directed/randomized tests unchanged. Compare generic cell counts as an early screening metric, then use a selected PDK and OpenROAD for actual ASIC area, timing and power evaluation.
