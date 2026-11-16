@@ -96,7 +96,8 @@ Tool versions, FPGA board, PDK corner, clock constraints and libraries must be r
 | Tiled multiplier arithmetic | Passing; 75,792 product checks including exhaustive INT4 and INT8 |
 | Operand-isolation variant | Implemented; 88.73% fewer multiplier-input bit toggles in tested trace |
 | Precision-tiled multiplier | Implemented; 16 signed 5×5 partial-product multipliers; generic area count +3.63% |
-| SVA checker | Authored; formal execution pending |
+| Combinational arithmetic proof | Added to Yosys SAT CI; result pending |
+| Sequential SVA checker | Authored; sequential formal execution pending |
 | Generic Yosys synthesis | Passing; four variants, 5,457–5,678 generic cells |
 | FPGA implementation | Not started |
 | ASIC RTL-to-GDSII | Not started |
@@ -110,6 +111,7 @@ make rtl-test     # Directed + randomized Icarus RTL regressions
 make test         # Run all standard checks
 bash scripts/run_generic_synth.sh
 make activity-test       # VCD-based multiplier input-toggle comparison
+make formal-test         # Yosys SAT arithmetic-bound proof
 python experiments/run_precision_sweep.py --samples 10000
 ```
 
