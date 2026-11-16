@@ -1,106 +1,113 @@
 # APEX-MAC Baseline Architecture
 
-**Status:** Proposed baseline specification. Freeze after model review and novelty gate.
+**Status:** first functional single-lane prototype committed; this document describes the current implementation, not a PPA-optimized architecture.
 
 ## 1. Numeric representation
 
-Inputs are signed 16-bit two's-complement Q1.15 integers. If the stored input is A, its real value is A / 2^15.
+Inputs are signed 16-bit two's-complement Q1.15 raw integers:
 
-| Mode | Operand format | Fraction bits | Quantization step |
-|---|---|---:|---:|
-| INT4 | signed Q1.3 | 3 | 2^-3 |
-| INT8 | signed Q1.7 | 7 | 2^-7 |
-| INT16 | signed Q1.15 | 15 | 2^-15 |
+    a = A / 2^15, b = B / 2^15
 
-INT16 is the exact reference mode. Reduced modes use round-to-nearest, ties-to-even, followed by saturation to the signed destination range.
+| Mode | Operand representation | Real-value quantization step |
+|---|---|---:|
+| INT4 | signed Q1.3 | 2^-3 |
+| INT8 | signed Q1.7 | 2^-7 |
+| INT16 | exact signed Q1.15 | 0 |
 
-All quantized operands are expanded back to the common Q1.15 raw-integer scale before multiplication. Products therefore share a Q2.30 raw-integer representation.
+INT4 and INT8 use round-to-nearest, ties-to-even, followed by saturation to the signed p-bit representable range. Quantized values are re-aligned to Q1.15 before multiplication.
 
-The initial accumulator is signed 48-bit Q-format with Q30 fractional scaling. Overflow must be detected and reported. The error-budget guarantee is conditional on no accumulator overflow.
+The product is an integer in Q2.30 units. The accumulator is signed 48-bit Q2.30 with sticky overflow detection. On overflow, the prototype holds the accumulator until the next frame reset. The numerical error guarantee applies only to frames without accumulator overflow.
 
 ## 2. Conservative product-error bound
 
-For reduced precision p in {4, 8}, the conservative real operand error is bounded by:
+For reduced precision p, let Delta_p = 2^(-(p-1)). The conservative operand error is bounded by |delta_a| <= Delta_p and |delta_b| <= Delta_p, including saturation endpoints.
 
-    |delta_a|, |delta_b| <= Delta_p, where Delta_p = 2^(1-p)
-
-This is a conservative one-LSB bound that includes saturation at the positive endpoint. For a_q = a + delta_a and b_q = b + delta_b:
+For a_q = a + delta_a and b_q = b + delta_b:
 
     |a*b - a_q*b_q| <= |a|*Delta_p + |b|*Delta_p + Delta_p^2
 
-With raw Q1.15 integers A and B, the corresponding bound in Q30 integer units is:
+For Q1.15 raw integer operands A and B, the corresponding Q30 integer bound is:
 
-    E_p_Q30(A,B) = (|A| + |B|) * 2^(16-p) + 2^(32-2p)
+    E_op_Q30 = (|A| + |B|)*2^(16-p) + 2^(32-2p)
 
-For INT16, E_16_Q30 = 0.
+Therefore:
+- INT4: E4 = (|A| + |B|)*2^12 + 2^24.
+- INT8: E8 = (|A| + |B|)*2^8 + 2^16.
+- INT16: E16 = 0.
 
-The Python reference model is the executable definition of the initial quantization and bound behavior. Any change to rounding, saturation or format must update both the model and specification.
+For an accumulation window without accumulator overflow, the triangle inequality gives:
 
-## 3. Accumulation-level contract
+    |S_exact - S_approx| <= sum_i E_op_i
 
-For a window of N MAC operations, the accumulated absolute arithmetic error is bounded by the sum of the per-operation bounds:
+The RTL tracks this conservative sum in error_spent_q30.
 
-    |S_exact - S_approx| <= sum(E_p_i_Q30(A_i,B_i)) for i = 0 ... N-1
+## 3. Precision-selection policy
 
-The controller maintains error_spent_q30 and never admits a reduced-precision operation whose bound exceeds the remaining configured budget.
+For every accepted input transaction:
+1. Estimate the INT4 bound.
+2. Select INT4 if its bound is less than or equal to the remaining budget.
+3. Otherwise select INT8 if its bound fits.
+4. Otherwise select exact INT16.
+5. Add the selected reduced-mode bound to the error-spent counter. INT16 adds zero.
 
-The guarantee does not cover accumulator overflow, input errors, analog noise, model quantization outside this MAC, or other unmodeled effects.
+The budget comparison is inclusive at the boundary. The budget is intended to remain constant throughout a frame. If the external budget is reduced below already-spent error, the RTL selects exact mode and raises sticky budget_violation on the next accepted transaction.
 
-## 4. Precision-selection policy
+## 4. Implemented RTL partition
 
-For each accepted operand pair:
-1. Compute the INT4 error bound.
-2. If it is less than or equal to the remaining budget, select INT4.
-3. Otherwise compute/check the INT8 bound.
-4. If it fits, select INT8.
-5. Otherwise select exact INT16.
-6. Add the selected operation's bound to the accumulated error counter.
-7. INT16 adds zero to the error counter.
-
-The boundary is inclusive. A new accumulation window resets the accumulator and error counter atomically.
-
-## 5. Proposed RTL partition
-
-| Module | Responsibility |
+| File / module | Responsibility |
 |---|---|
-| apex_mac_top | Top-level interface, configuration and status |
-| precision_controller | Select INT4 / INT8 / INT16 |
-| error_bound_estimator | Estimate conservative product-error bound |
-| error_budget_tracker | Track spent and remaining budget |
-| operand_quantizer | Round and saturate operands |
-| precision_scalable_multiplier | Mode-dependent multiplication |
-| product_aligner | Common Q2.30 product representation |
-| accumulator | 48-bit accumulation and overflow detection |
-| register_bank | Control, status and counters |
+| operand_quantizer.sv | Mode-local constants, ties-to-even rounding, saturation and Q1.15 re-alignment |
+| error_bound_estimator.sv | Compute INT4 / INT8 Q30 bounds |
+| precision_controller.sv | Choose lowest precision within remaining budget |
+| apex_mac_top.sv | MAC, optional transaction-qualified multiplier operand isolation, accumulator and status |
 
-The exact module boundaries may change after timing and area profiling.
+The current datapath uses one inferred signed 16×16 multiplier with a 32-bit product. The pre-synthesis Yosys netlist confirms A_WIDTH=16, B_WIDTH=16 and Y_WIDTH=32.
 
-## 6. Interface contract to freeze before RTL
+The top-level parameter ENABLE_OPERAND_ISOLATION defaults to 0. When enabled, the multiplier inputs are driven to zero unless a transaction is accepted. This adds 33 generic mapped cells in the current Yosys 0.52 comparison (5,467 baseline versus 5,500 isolated) and reduced multiplier-input bit toggles by 88.73% in the deterministic idle-heavy RTL activity trace. This is not a measured power reduction; see OPERAND_ISOLATION_EXPERIMENT.md.
 
-Candidate inputs:
-- clk, rst_n
-- in_valid, in_ready
+The multiplier is not yet a structurally segmented or precision-gated partial-product array. Reduced modes align quantized operands so that low-order bits are zero, but the present RTL still uses one inferred 16×16 multiplier.
+
+## 5. Top-level interface and protocol
+
+Top-level parameter:
+- ENABLE_OPERAND_ISOLATION (default 0)
+
+Inputs:
+- clk, active-low asynchronous rst_n
 - frame_start
-- operand_a[15:0], operand_b[15:0]
-- error_budget_q30[47:0]
+- in_valid
+- signed operand_a[15:0], operand_b[15:0]
+- unsigned error_budget_q30[47:0]
 
-Candidate outputs:
-- out_valid
-- accumulator_q30[47:0]
+Outputs:
+- in_ready
+- registered one-cycle out_valid
+- signed accumulator_q30[47:0]
 - error_spent_q30[47:0]
-- last_precision[1:0]
-- overflow
-- budget_violation
+- last_precision[1:0] (00=INT4, 01=INT8, 10=INT16)
+- sticky overflow
+- sticky budget_violation
 
-The final handshake, pipeline latency, reset semantics, budget reconfiguration rules and frame-start priority must be specified before implementation.
+A transaction is accepted when in_valid && in_ready. in_ready is low during reset and while frame_start is asserted. frame_start has priority, clears the accumulator, error counter and sticky status, and suppresses input acceptance in that cycle. out_valid pulses for one cycle after each accepted input. The accumulator/status are continuously visible; there is no output-ready/back-pressure interface.
 
-## 7. Physical implementation risk
+## 6. Verification and physical-design questions
 
-A behavioral case statement around 4-, 8- and 16-bit multiplications may synthesize into a full-width multiplier and fail to deliver the expected area or power benefit.
+The repository currently has:
+- Python reference-model unit tests.
+- Directed Icarus Verilog RTL tests.
+- A deterministic randomized RTL regression checking 264 transactions against independent SystemVerilog reference functions.
+- The same directed and randomized tests with operand isolation enabled.
+- A VCD activity experiment comparing baseline and operand-isolated multiplier inputs.
+- A bindable SVA checker; formal execution is still pending.
+- A generic Yosys 0.52 synthesis comparison with archived pre/post-synthesis netlists and statistics.
 
-Compare:
-- A straightforward inferred-multiplier baseline.
-- A structurally segmented / gated partial-product implementation.
-- A resource-shared implementation if throughput permits.
+These are functional and generic-synthesis results, not formal proof, ASIC PPA, FPGA-board implementation or signoff evidence.
 
-Do not infer energy savings from RTL structure alone. Measure switching activity and post-route implementation results.
+Next required work:
+- Run the SVA checker with a supported formal-capable tool and archive proof assumptions/results.
+- Implement a structurally segmented / precision-gated multiplier as a separate variant.
+- Compare all variants under identical workloads, synthesis settings and timing constraints.
+- Add switching activity and power estimation using technology-mapped netlists and realistic activity annotation.
+- Complete FPGA implementation on a selected board.
+- Complete ASIC synthesis and OpenROAD RTL-to-GDSII with timing, DRC and LVS evidence.
+- Evaluate fixed-point inference workloads and application-level accuracy.
