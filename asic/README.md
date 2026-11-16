@@ -1,10 +1,26 @@
 # ASIC RTL-to-GDSII
 
-Initial candidate flow: Yosys / ABC, OpenROAD-flow-scripts, OpenSTA and the SkyWater SKY130 HD platform.
+## Current baseline
+
+The repository includes a generic Yosys synthesis script:
+
+    bash scripts/run_generic_synth.sh
+
+It produces:
+- Yosys version and run metadata.
+- Generic mapped cell statistics.
+- A JSON netlist.
+- Full synthesis log.
+
+The generic cell count is useful for comparing RTL variants under the same tool version and script. It is **not** a foundry standard-cell area estimate, timing closure result, power result, or ASIC signoff report.
+
+## Planned technology-mapped flow
+
+Initial candidate: SkyWater SKY130 HD with OpenROAD-flow-scripts.
 
 Required stages:
-1. RTL elaboration and lint.
-2. Synthesis and technology mapping.
+1. RTL elaboration, lint and synthesis checks.
+2. Technology mapping against the selected PDK libraries.
 3. Floorplanning and pin placement.
 4. Power-distribution planning.
 5. Global placement and optimization.
@@ -15,4 +31,15 @@ Required stages:
 10. DRC and LVS checks.
 11. GDSII export and archived reports.
 
-Record the PDK revision, process corner, voltage, temperature, clock constraints, libraries and tool versions. Do not describe a flow as signoff-complete unless the required physical checks have actually passed.
+Record the exact PDK revision, process corner, voltage, temperature, clock constraints, libraries, tool versions and commands. Do not describe the flow as signoff-complete unless required physical checks have actually passed.
+
+## Comparison discipline
+
+Compare exact INT16 and precision-scalable variants with:
+- Identical timing constraints.
+- Identical PDK and corner.
+- Identical synthesis / physical-design tool versions.
+- Identical utilization targets and floorplan assumptions.
+- Identical activity traces for power estimation.
+
+Report synthesis, placement, post-CTS and post-route results separately. Do not label generic Yosys cell counts as ASIC PPA.

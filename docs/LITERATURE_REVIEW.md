@@ -1,6 +1,8 @@
-# APEX-MAC Initial Literature Review
+# APEX-MAC Initial Literature Landscape
 
-**Status:** Preliminary landscape only; not a systematic review. This document records known close work to prevent unsupported novelty claims.
+**Status:** Preliminary landscape only; not a systematic review. The purpose is to identify close prior work and prevent unsupported novelty claims.
+
+See [PRIOR_ART_MATRIX.md](PRIOR_ART_MATRIX.md) for a feature-by-feature comparison and the mandatory go/no-go questions.
 
 ## 1. Closest identified publications
 
@@ -42,20 +44,21 @@
 - Implication: cumulative-error behavior in MACs must be examined, not assumed to be unexplored.
 
 ### Breaking the DSP Wall: A Software–Hardware Co-Designed, Adaptive Error-Compensated MAC Architecture for Efficient Edge AI
+- Authors: Changyan Liu and Juntai Heiyan.
 - Venue: Electronics, 2026, 15(8), 1586.
 - DOI: https://doi.org/10.3390/electronics15081586
-- Relevance: adaptive error-compensated MAC, FPGA implementation and workload-level evaluation.
+- Relevance: adaptive error-compensated MAC, FPGA implementation and workload-level validation.
 - Implication: error compensation alone is not a sufficient contribution.
 
 ### Runtime-Configurable Approximate MAC Architecture with Workload-Aware Mode Selection for Energy-Efficient ASIC Accelerators
 - Venue: SSRN preprint, posted 19 September 2026.
 - URL: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7488414
 - Relevance: workload-aware runtime mode selection using error tolerance, energy budget, accumulation length and sparsity indicators.
-- Status: preprint; peer-review status must be checked before citing as a peer-reviewed publication.
+- Status: preprint; peer-review status must be checked before treating it as a peer-reviewed publication.
 
 ## 2. Candidate differentiation to investigate
 
-The candidate APEX-MAC mechanism is a **configured per-accumulation numerical-error budget** with operand-dependent conservative product bounds, deterministic precision fallback and formal safety properties.
+The candidate APEX-MAC mechanism is a configured per-accumulation numerical-error budget with operand-dependent conservative product bounds, deterministic precision fallback and formal safety properties.
 
 This may still overlap with prior work, especially the 2026 overflow-driven MAC and 2025 balanced-error MAC. The full texts and detailed algorithms must be compared before proceeding.
 
