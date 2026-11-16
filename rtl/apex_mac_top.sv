@@ -1,5 +1,6 @@
 module apex_mac_top #(
-    parameter bit ENABLE_OPERAND_ISOLATION = 1'b0
+    parameter bit ENABLE_OPERAND_ISOLATION = 1'b0,
+    parameter bit USE_TILED_MULTIPLIER = 1'b0
 ) (
     input  logic               clk,
     input  logic               rst_n,
@@ -74,8 +75,19 @@ module apex_mac_top #(
         end
     endgenerate
 
-    // A signed 16x16 multiply is sufficient; product_q30 retains all 32 bits.
-    assign product_q30 = multiplier_operand_a * multiplier_operand_b;
+    generate
+        if (USE_TILED_MULTIPLIER) begin : g_tiled_multiplier
+            precision_tiled_multiplier u_precision_tiled_multiplier (
+                .operand_a      (multiplier_operand_a),
+                .operand_b      (multiplier_operand_b),
+                .precision_mode (selected_precision),
+                .product        (product_q30)
+            );
+        end else begin : g_inferred_multiplier
+            // Signed 16x16 multiply; product_q30 retains all 32 bits.
+            assign product_q30 = multiplier_operand_a * multiplier_operand_b;
+        end
+    endgenerate
 
     always_comb begin
         accumulator_sum =
