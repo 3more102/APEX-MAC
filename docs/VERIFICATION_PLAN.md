@@ -44,7 +44,7 @@ The RTL is not used as its own golden model. The SV regression independently com
 
 `tb/tb_apex_mac_random.sv` runs reproducible operand traces across multiple accumulation frames and error budgets. It compares every accepted transaction against independent SystemVerilog reference functions.
 
-The regression is run with ENABLE_OPERAND_ISOLATION=0 and =1. Each run checks 264 accepted transactions. The regression checks:
+The regression is run across four configurations: native multiplier, native plus operand isolation, tiled multiplier, and tiled plus operand isolation. Each randomized run checks 264 accepted transactions (1,056 total across the four configurations). The standalone precision-tiled multiplier also passes 75,792 product checks: exhaustive INT4 (256 pairs), exhaustive INT8 (65,536 pairs), and 10,000 deterministic random INT16 pairs. The regression checks:
 - Selected precision and selected error bound.
 - INT4 / INT8 estimated bounds.
 - Quantized operands.
@@ -61,7 +61,7 @@ The random seed and generated sequence are fixed in the testbench for reproducib
 
 ## 5. Operand-isolation activity experiment
 
-The activity test runs identical deterministic idle/active operand traces through baseline and operand-isolated variants. VCD analysis counts bit toggles on multiplier input ports. The current trace produced 9,281 baseline toggles versus 1,046 isolated toggles (88.73% fewer). This is an input-activity proxy only; it is not a power or energy measurement. Re-run with `make activity-test` and see `docs/OPERAND_ISOLATION_EXPERIMENT.md`.
+The activity test runs identical deterministic idle/active operand traces through native baseline and native operand-isolated variants. VCD analysis counts bit toggles on multiplier input ports. The current trace produced 9,281 baseline toggles versus 1,046 isolated toggles (88.73% fewer). This is an input-activity proxy only; it is not a power or energy measurement. Re-run with `make activity-test` and see `docs/OPERAND_ISOLATION_EXPERIMENT.md`.
 
 ## 6. Candidate SVA / formal properties
 
