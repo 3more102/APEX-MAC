@@ -59,18 +59,20 @@ The budget comparison is inclusive at the boundary. The budget is intended to re
 | operand_quantizer.sv | Mode-local constants, ties-to-even rounding, saturation and Q1.15 re-alignment |
 | error_bound_estimator.sv | Compute INT4 / INT8 Q30 bounds |
 | precision_controller.sv | Choose lowest precision within remaining budget |
+| precision_tiled_multiplier.sv | Optional radix-16 digit-tiled datapath with 16 signed 5×5 partial-product multipliers |
 | apex_mac_top.sv | MAC, optional transaction-qualified multiplier operand isolation, accumulator and status |
 
-The current datapath uses one inferred signed 16×16 multiplier with a 32-bit product. The pre-synthesis Yosys netlist confirms A_WIDTH=16, B_WIDTH=16 and Y_WIDTH=32.
+The default datapath uses one inferred signed 16×16 multiplier with a 32-bit product. The optional tiled datapath uses sixteen signed 5×5 multipliers with 9-bit partial products. Both are selected by USE_TILED_MULTIPLIER and have passed the same directed and randomized testbenches.
 
-The top-level parameter ENABLE_OPERAND_ISOLATION defaults to 0. When enabled, the multiplier inputs are driven to zero unless a transaction is accepted. This adds 33 generic mapped cells in the current Yosys 0.52 comparison (5,467 baseline versus 5,500 isolated) and reduced multiplier-input bit toggles by 88.73% in the deterministic idle-heavy RTL activity trace. This is not a measured power reduction; see OPERAND_ISOLATION_EXPERIMENT.md.
+The top-level parameter ENABLE_OPERAND_ISOLATION defaults to 0. When enabled, the multiplier inputs are driven to zero unless a transaction is accepted. This adds 32 generic mapped cells in the current Yosys 0.52 comparison (5,457 baseline versus 5,489 isolated) and reduced multiplier-input bit toggles by 88.73% in the deterministic idle-heavy RTL activity trace. This is not a measured power reduction; see OPERAND_ISOLATION_EXPERIMENT.md.
 
-The multiplier is not yet a structurally segmented or precision-gated partial-product array. Reduced modes align quantized operands so that low-order bits are zero, but the present RTL still uses one inferred 16×16 multiplier.
+The precision-tiled variant explicitly activates one radix-16 digit for INT4, two for INT8 and all four for INT16. It currently costs 3.63% more generic mapped cells than the inferred baseline; see MULTIPLIER_VARIANTS.md. This is a prototype trade-off, not an established PPA win.
 
 ## 5. Top-level interface and protocol
 
-Top-level parameter:
+Top-level parameters:
 - ENABLE_OPERAND_ISOLATION (default 0)
+- USE_TILED_MULTIPLIER (default 0)
 
 Inputs:
 - clk, active-low asynchronous rst_n
@@ -99,7 +101,7 @@ The repository currently has:
 - The same directed and randomized tests with operand isolation enabled.
 - A VCD activity experiment comparing baseline and operand-isolated multiplier inputs.
 - A bindable SVA checker; formal execution is still pending.
-- A generic Yosys 0.52 synthesis comparison with archived pre/post-synthesis netlists and statistics.
+- A generic Yosys 0.52 synthesis comparison of all four configurations with archived pre/post-synthesis netlists and statistics.
 
 These are functional and generic-synthesis results, not formal proof, ASIC PPA, FPGA-board implementation or signoff evidence.
 
