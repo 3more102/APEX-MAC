@@ -65,7 +65,7 @@ The activity test runs identical deterministic idle/active operand traces throug
 
 ## 6. Candidate SVA / formal properties
 
-The bindable checker is in `formal/apex_mac_sva.sv`.
+The bindable checker is in `formal/apex_mac_sva.sv`. A separate symbolic combinational harness is in `formal/apex_mac_arithmetic_formal.sv` and runs with `make formal-test`.
 
 - A reduced-precision transaction is selected only if its bound fits the remaining budget.
 - INT16 contributes zero quantization-error bound.
@@ -75,7 +75,7 @@ The bindable checker is in `formal/apex_mac_sva.sv`.
 - Every accepted input produces the registered completion pulse.
 - Overflow is sticky until frame reset.
 
-These assertions have been authored but are **not yet formally proven**. The SVA file requires a simulator/formal tool with concurrent SVA and bind support. See `formal/README.md`.
+The combinational arithmetic harness is intended to prove the INT4/INT8 product-error bounds and precision-controller budget decisions for all symbolic Q1.15 operand pairs and 48-bit budget values. The sequential SVA assertions have been authored but are **not yet formally proven**; they require a simulator/formal tool with concurrent SVA and bind support. See `formal/README.md`.
 
 ## 7. Coverage
 
