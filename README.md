@@ -2,97 +2,116 @@
 
 **Adaptive Precision and Error-Budgeted Multiply–Accumulate Accelerator**
 
-APEX-MAC is a research-oriented digital design project investigating a precision-scalable fixed-point MAC whose runtime controller enforces a configured numerical-error budget across an accumulation window.
+APEX-MAC is a research-oriented digital design project investigating runtime precision selection for fixed-point multiply–accumulate (MAC) workloads. The target is a reproducible implementation across FPGA and ASIC flows, including RTL verification, synthesis, physical design, and GDSII generation.
 
-Targets:
-- Synthesizable SystemVerilog RTL.
-- Simulation, assertions and formal verification.
-- FPGA implementation.
-- ASIC RTL-to-GDSII using an open PDK and open-source physical-design flow.
-- Reproducible numerical, workload and PPA evaluation.
-- A research-paper submission, subject to a demonstrated novelty gap.
+## Research direction
 
-> **Research status:** Initial repository and reference-model stage. No RTL, FPGA, ASIC, power, timing, area or GDSII results are claimed.
+The candidate architecture supports signed fixed-point operands and three arithmetic modes:
 
-## Candidate research contribution
+- **INT4:** reduced-precision operation
+- **INT8:** medium-precision operation
+- **INT16:** full-precision reference operation
 
-A runtime controller estimates a conservative bound on product error for each candidate precision. It chooses the lowest supported precision that fits the remaining error budget for the current accumulation window. If neither reduced-precision mode fits, it uses exact INT16 arithmetic.
+A runtime controller estimates a conservative upper bound on the numerical error introduced by each reduced-precision operation. It selects the lowest precision whose error bound fits within the remaining accumulation error budget; otherwise, it selects INT16.
 
-The candidate contribution is not simply variable precision. It is the combination of:
-1. Operand-dependent product-error bounds.
-2. Explicit accumulation-window error-budget accounting.
-3. Deterministic precision fallback.
-4. Formal verification of budget safety under stated arithmetic assumptions.
-5. Matched FPGA and ASIC evaluation.
+The research question is whether this **accumulation-level error-budget policy**, combined with a hardware-efficient precision-scalable datapath, can provide a useful energy/area/performance trade-off while enforcing a measurable numerical-error bound.
 
-This is a **candidate research direction**, not a verified novelty claim. Recent work already covers adaptive-precision MACs, runtime energy-aware MACs, and overflow-driven dynamic precision. See [the literature review](docs/LITERATURE_REVIEW.md). The novelty gate must be passed before claiming a new architecture.
+> Status: the first single-lane RTL prototype and Python golden model are committed on `research/reference-model-rtl-foundation`. CI has passed the Python reference-model suite, directed Icarus RTL smoke test, and deterministic randomized RTL regression (264 transactions). A bindable SVA checker has been authored but has not yet been executed by a formal engine. The generic Yosys 0.52 synthesis baseline has passed CI: 5,467 generic mapped cells, with pre/post-synthesis reports archived. This is a logic-count baseline, not ASIC PPA. This is not PPA, FPGA-board, ASIC physical-design, or formal-proof evidence. Novelty remains a hypothesis pending full-text prior-art review.
 
-## Initial arithmetic contract
+## Initial design assumptions
 
 - Input operands: signed 16-bit two's-complement Q1.15.
-- Reduced modes: signed Q1.3 (INT4) and Q1.7 (INT8).
-- Exact mode: signed Q1.15 (INT16).
-- Quantization: round-to-nearest, ties-to-even, then saturation.
-- Product / accumulator scale: Q2.30.
-- Initial accumulator width: signed 48-bit.
-- Error budget: non-negative integer in Q30 product units, per accumulation window.
-- INT16 contributes zero quantization-error bound.
-- Accumulator overflow is detected; the numerical error guarantee applies only when overflow does not occur.
+- Reduced modes: rounded and saturated Q1.3 (INT4) and Q1.7 (INT8).
+- Full mode: exact Q1.15 × Q1.15 multiplication (INT16).
+- Product alignment: signed Q2.30 representation.
+- Accumulator: 48-bit signed, with overflow detection.
+- Error budget: accumulated conservative product-error bound in Q30 units.
+- Initial evaluation: standalone MAC, followed by vector/DNN workload integration.
 
-For precision p in {4, 8}, let A and B be the signed Q1.15 integer operands. With a conservative operand quantization error of one reduced-format LSB, the proposed product-error bound in Q30 integer units is:
+These are baseline specification choices and may be revised after modeling and feasibility tests.
 
-    E_p(A,B) = (|A| + |B|) * 2^(16-p) + 2^(32-2p)
+## Main research objectives
 
-The bound and implementation are defined in [the architecture specification](docs/ARCHITECTURE.md) and exercised by the Python reference model.
+1. Develop a mathematically defined, error-budget-aware precision-selection policy.
+2. Implement a precision-scalable MAC datapath with measurable operand isolation and switching reduction.
+3. Verify arithmetic correctness, error-bound safety, and control behavior.
+4. Evaluate representative workloads and application-level accuracy.
+5. Implement the same RTL on FPGA and through an ASIC RTL-to-GDSII flow.
+6. Publish reproducible RTL, scripts, constraints, and benchmark methodology where licensing permits.
 
 ## Repository map
 
-    APEX-MAC/
-    ├── .github/workflows/      # Reference-model CI
-    ├── docs/                   # Research, architecture and verification plans
-    ├── model/                  # Independent Python reference model
-    ├── tests/                  # Reference-model unit tests
-    ├── rtl/                    # SystemVerilog implementation (next stage)
-    ├── formal/                 # Formal properties and harnesses (planned)
-    ├── tb/                     # RTL testbenches (planned)
-    ├── fpga/                   # FPGA constraints and implementation (planned)
-    ├── asic/                   # Synthesis and physical-design flow (planned)
-    ├── scripts/                # Reproducible experiment scripts
-    ├── experiments/            # Workloads, logs and measured results
-    └── paper/                  # Manuscript and figures (planned)
+```text
+APEX-MAC/
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── LITERATURE_REVIEW.md
+│   ├── GENERIC_SYNTH_BASELINE.md
+│   ├── OPERAND_ISOLATION_EXPERIMENT.md
+│   ├── PRIOR_ART_MATRIX.md
+│   ├── RESEARCH_PLAN.md
+│   ├── ROADMAP.md
+│   └── VERIFICATION_PLAN.md
+├── rtl/                 # Initial single-lane SystemVerilog prototype
+├── tb/                  # Directed and randomized Icarus testbenches
+├── tests/               # Python reference-model unit tests
+├── formal/              # Bindable SVA checker; formal proof pending
+├── scripts/             # Reproducible synthesis and analysis scripts
+├── fpga/                # FPGA constraints and implementation
+├── asic/                # ASIC RTL-to-GDSII planning and flow
+├── models/              # Python reference models
+├── experiments/         # Synthetic precision-policy sweep and future measured results
+└── paper/               # Manuscript, figures and supplementary material
+```
 
-## Initial toolchain candidates
+## Planned toolchain
 
-| Stage | Candidate |
+| Stage | Candidate tools |
 |---|---|
 | RTL | SystemVerilog |
-| Simulation | Questa, Verilator or Icarus Verilog |
-| Assertions / formal | SVA, SymbiYosys |
-| Reference model | Python 3.11+ (standard library) |
-| FPGA | AMD Vivado or Intel Quartus; board to be selected |
-| ASIC synthesis | Yosys / ABC |
-| Physical design | OpenROAD-flow-scripts |
+| Simulation | Icarus Verilog (CI), Questa / Verilator (planned) |
+| Assertions/formal | SVA, SymbiYosys or Questa Formal |
+| Reference model | Python standard library |
+| FPGA | AMD Vivado or Intel Quartus (board to be selected) |
+| Generic synthesis | Yosys / ABC |
+| ASIC physical design | OpenROAD-flow-scripts |
 | Timing | OpenSTA |
 | Layout inspection / verification | KLayout, Magic, Netgen |
 | Initial open PDK | SkyWater SKY130 HD |
 
-The FPGA board, ASIC PDK corner, timing constraints and tool versions must be frozen before benchmark runs.
+Tool versions, FPGA board, PDK corner, clock constraints and libraries must be recorded before benchmark runs.
 
 ## Development status
 
 | Workstream | Status |
 |---|---|
-| Repository foundation | Initialized |
-| Literature / novelty assessment | Preliminary; open |
-| Mathematical reference model | Initial implementation |
-| RTL architecture | Baseline specification |
-| Synthesizable RTL | Not started |
-| Simulation / formal verification | Not started |
+| Repository foundation | Initial structure committed |
+| Literature and novelty assessment | Preliminary; systematic review pending |
+| Mathematical reference model | Implemented; unit tests pass in CI |
+| RTL architecture | Initial single-lane specification implemented |
+| RTL implementation | Functional prototype committed |
+| Directed RTL simulation | Passing |
+| Randomized RTL regression | Passing; 264 checked transactions |
+| Operand-isolation variant | Implemented; 88.73% fewer multiplier-input bit toggles in tested trace |
+| SVA checker | Authored; formal execution pending |
+| Generic Yosys synthesis | Passing; baseline 5,467 cells, isolated 5,500 cells |
 | FPGA implementation | Not started |
 | ASIC RTL-to-GDSII | Not started |
-| Workload-level evaluation | Not started |
 | Paper | Not started |
+
+## Quick checks
+
+```bash
+make model-test   # Python golden-model tests
+make rtl-test     # Directed + randomized Icarus RTL regressions
+make test         # Run all standard checks
+bash scripts/run_generic_synth.sh
+make activity-test       # VCD-based multiplier input-toggle comparison
+python experiments/run_precision_sweep.py --samples 10000
+```
+
+Development work is isolated on [research/reference-model-rtl-foundation](https://github.com/3more102/APEX-MAC/tree/research/reference-model-rtl-foundation). Do not merge into `main` until the design review and verification gates are satisfied.
 
 ## Research integrity
 
-All performance claims must be supported by reproducible reports and exact tool configurations. FPGA LUT/FF counts must not be compared directly with ASIC standard-cell area. ASIC PPA claims must identify the PDK, process corner, voltage, temperature, clock constraints, activity assumptions and physical-design stage. A GDSII file alone is not signoff evidence; DRC, LVS and timing evidence must accompany it.
+All performance claims must be supported by reproducible reports. Generic Yosys cell counts are not ASIC standard-cell area, timing, power or signoff evidence. FPGA resource counts must not be compared directly with ASIC cell area. ASIC PPA claims must state the PDK, process corner, voltage, temperature, clock constraint, activity assumptions and physical-design stage. A GDSII file alone is not evidence of signoff; DRC, LVS and timing evidence must accompany it.
