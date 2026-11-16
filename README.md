@@ -16,7 +16,7 @@ A runtime controller estimates a conservative upper bound on the numerical error
 
 The research question is whether this **accumulation-level error-budget policy**, combined with a hardware-efficient precision-scalable datapath, can provide a useful energy/area/performance trade-off while enforcing a measurable numerical-error bound.
 
-> Status: the first single-lane RTL prototype and Python golden model are committed on `research/reference-model-rtl-foundation`. CI has passed the Python reference-model suite, directed Icarus RTL smoke test, and deterministic randomized RTL regression (264 transactions). A bindable SVA checker has been authored but has not yet been executed by a formal engine. The generic Yosys 0.52 synthesis baseline has passed CI: 5,467 generic mapped cells, with pre/post-synthesis reports archived. This is a logic-count baseline, not ASIC PPA. This is not PPA, FPGA-board, ASIC physical-design, or formal-proof evidence. Novelty remains a hypothesis pending full-text prior-art review.
+> Status: the first single-lane RTL prototype and Python golden model are committed on `research/reference-model-rtl-foundation`. CI has passed the Python reference-model suite, directed Icarus RTL smoke test, and deterministic randomized RTL regression (264 transactions). A bindable SVA checker has been authored but has not yet been executed by a formal engine. Yosys 0.52 generic synthesis passes for four configurations: native (5,457 cells), operand-isolated (5,489), tiled (5,655) and tiled+isolated (5,678). All four RTL variants pass directed and 264-transaction randomized regression; the tiled multiplier also passes 75,792 exhaustive/random product checks. These are generic logic counts, not ASIC PPA. This is not PPA, FPGA-board, ASIC physical-design, or formal-proof evidence. Novelty remains a hypothesis pending full-text prior-art review.
 
 ## Initial design assumptions
 
@@ -48,11 +48,12 @@ APEX-MAC/
 │   ├── LITERATURE_REVIEW.md
 │   ├── GENERIC_SYNTH_BASELINE.md
 │   ├── OPERAND_ISOLATION_EXPERIMENT.md
+│   ├── MULTIPLIER_VARIANTS.md
 │   ├── PRIOR_ART_MATRIX.md
 │   ├── RESEARCH_PLAN.md
 │   ├── ROADMAP.md
 │   └── VERIFICATION_PLAN.md
-├── rtl/                 # Initial single-lane SystemVerilog prototype
+├── rtl/                 # Native and precision-tiled single-lane SystemVerilog variants
 ├── tb/                  # Directed and randomized Icarus testbenches
 ├── tests/               # Python reference-model unit tests
 ├── formal/              # Bindable SVA checker; formal proof pending
@@ -89,12 +90,14 @@ Tool versions, FPGA board, PDK corner, clock constraints and libraries must be r
 | Literature and novelty assessment | Preliminary; systematic review pending |
 | Mathematical reference model | Implemented; unit tests pass in CI |
 | RTL architecture | Initial single-lane specification implemented |
-| RTL implementation | Functional prototype committed |
+| RTL implementation | Native 16×16 and precision-tiled 16×5×5 variants implemented |
 | Directed RTL simulation | Passing |
-| Randomized RTL regression | Passing; 264 checked transactions |
+| Randomized RTL regression | Passing; 264 transactions per configuration across four variants |
+| Tiled multiplier arithmetic | Passing; 75,792 product checks including exhaustive INT4 and INT8 |
 | Operand-isolation variant | Implemented; 88.73% fewer multiplier-input bit toggles in tested trace |
+| Precision-tiled multiplier | Implemented; 16 signed 5×5 partial-product multipliers; generic area count +3.63% |
 | SVA checker | Authored; formal execution pending |
-| Generic Yosys synthesis | Passing; baseline 5,467 cells, isolated 5,500 cells |
+| Generic Yosys synthesis | Passing; four variants, 5,457–5,678 generic cells |
 | FPGA implementation | Not started |
 | ASIC RTL-to-GDSII | Not started |
 | Paper | Not started |
