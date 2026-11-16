@@ -47,9 +47,13 @@ jobs:
           sudo apt-get install -y yosys
       - name: Run generic synthesis baseline
         run: bash scripts/run_generic_synth.sh
-      - name: Archive generic synthesis reports
+      - name: Prove combinational arithmetic bounds and precision policy
+        run: bash formal/run_arithmetic_proof.sh
+      - name: Archive generic synthesis and formal reports
         uses: actions/upload-artifact@v4
         with:
           name: apex-mac-generic-synthesis
-          path: reports/generic-synth/
+          path: |
+            reports/generic-synth/
+            reports/formal-arithmetic/
           if-no-files-found: error
