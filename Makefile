@@ -9,7 +9,7 @@ RTL_SOURCES = \
 	rtl/operand_quantizer.sv \
 	rtl/apex_mac_top.sv
 
-.PHONY: test model-test rtl-test rtl-directed-test rtl-random-test rtl-isolation-test rtl-tiled-test rtl-tiled-isolation-test rtl-tiled-exhaustive-test activity-test clean
+.PHONY: test model-test rtl-test rtl-directed-test rtl-random-test rtl-isolation-test rtl-tiled-test rtl-tiled-isolation-test rtl-tiled-exhaustive-test activity-test formal-test clean
 
 test: model-test rtl-test
 
@@ -56,6 +56,9 @@ rtl-tiled-exhaustive-test:
 
 activity-test:
 	bash scripts/run_activity_comparison.sh
+
+formal-test:
+	bash formal/run_arithmetic_proof.sh
 
 clean:
 	rm -rf build __pycache__ models/__pycache__ tests/__pycache__
