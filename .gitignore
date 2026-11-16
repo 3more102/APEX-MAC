@@ -1,0 +1,55 @@
+# Simulation outputs
+work/
+transcript
+vsim.wlf
+*.vcd
+*.fst
+*.fsdb
+*.vpd
+*.jou
+*.log
+*.wdb
+
+# Synthesis / implementation outputs
+*.edf
+*.edif
+*.dcp
+*.bit
+*.bin
+*.mcs
+*.pdi
+*.svf
+*.sdf
+*.spef
+*.sdc
+*.odb
+*.def
+*.lef
+*.gds
+*.gdsii
+*.oas
+*.lib
+*.db
+
+# Build directories
+build/
+dist/
+out/
+reports/
+results/
+logs/
+tmp/
+.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
