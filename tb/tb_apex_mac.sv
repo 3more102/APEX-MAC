@@ -1,4 +1,5 @@
-module tb_apex_mac #(parameter bit ENABLE_OPERAND_ISOLATION = 1'b0);
+module tb_apex_mac #(parameter bit ENABLE_OPERAND_ISOLATION = 1'b0,
+    parameter bit USE_TILED_MULTIPLIER = 1'b0);
     logic clk = 1'b0;
     logic rst_n = 1'b0;
     logic frame_start = 1'b0;
@@ -16,7 +17,8 @@ module tb_apex_mac #(parameter bit ENABLE_OPERAND_ISOLATION = 1'b0);
 
     always #5 clk = ~clk;
 
-    apex_mac_top #(.ENABLE_OPERAND_ISOLATION(ENABLE_OPERAND_ISOLATION)) dut (
+    apex_mac_top #(.ENABLE_OPERAND_ISOLATION(ENABLE_OPERAND_ISOLATION),
+                   .USE_TILED_MULTIPLIER(USE_TILED_MULTIPLIER)) dut (
         .clk(clk),
         .rst_n(rst_n),
         .frame_start(frame_start),
