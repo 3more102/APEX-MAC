@@ -1,84 +1,98 @@
 # APEX-MAC Research Plan
 
-## 1. Working title
+## Working title
 
-**APEX-MAC: An Accumulation-Level Error-Budgeted Precision-Scalable MAC Architecture for Energy-Efficient Edge Inference**
+**APEX-MAC: An Accumulation-Budgeted Precision-Scalable MAC with Runtime Error Contracts**
 
-The title is provisional and should be updated after the literature and novelty assessment.
+The title is provisional pending the novelty assessment.
 
-## 2. Problem statement
+## 1. Problem statement
 
-Fixed-precision MAC units perform every operation at the same arithmetic precision, even when a workload can tolerate different numerical-error levels across operations or accumulation windows. Precision-scalable MACs address part of this problem, but the research must establish whether a controller that explicitly manages a cumulative error budget can provide a useful and formally testable design point.
+Fixed-precision MAC units perform all operations at one precision. Precision-scalable MACs offer runtime flexibility, but a selectable precision mode alone does not establish a deterministic bound on accumulated arithmetic error for a particular reduction or dot product.
 
-The project will investigate the joint design of:
-- A precision-scalable arithmetic datapath.
-- A runtime precision-selection controller.
-- A conservative error estimator.
-- An accumulation-level error-budget tracker.
-- A hardware evaluation methodology spanning FPGA and ASIC.
+This project investigates a fixed-point MAC architecture in which each reduced-precision operation is admitted only when a conservative product-error bound fits within the remaining error budget of the current accumulation window. Otherwise, the operation uses exact arithmetic.
 
-## 3. Research hypothesis
+## 2. Candidate hypothesis
 
-For bounded fixed-point workloads, a controller that selects the lowest supported precision whose conservative per-operation error bound fits within the remaining accumulation error budget can reduce switching activity and potentially energy, while guaranteeing that the accumulated arithmetic error remains within a configured bound, provided accumulator overflow and other non-arithmetic effects are excluded or separately handled.
+For supported fixed-point inputs, the sum of conservative per-product error bounds can provide a deterministic upper bound on the absolute difference between the exact and approximate accumulated results, provided that:
+- The bound is computed without overflow.
+- The accumulator does not overflow.
+- All quantization and saturation behavior matches the reference model.
+- The accumulation window is reset and accounted for consistently.
 
-This is a hypothesis to test, not a result.
+A runtime controller can use this bound to select reduced precision when the configured budget permits and exact precision otherwise.
 
-## 4. Candidate contributions
+The mathematical guarantee is testable. Whether the architecture provides a worthwhile area, timing or energy advantage is an empirical question.
 
-1. **Accumulation-level error budgeting:** track a conservative sum of per-operation error bounds rather than selecting precision from a fixed mode or energy threshold alone.
-2. **Magnitude-aware precision selection:** account for operand magnitudes and the selected quantization step when estimating the next operation's error.
-3. **Precision-scalable datapath:** implement INT4, INT8 and exact INT16 modes, with structural operand isolation or partial-product gating whose hardware benefit is measured after synthesis and routing.
-4. **Cross-platform evaluation:** use one RTL specification for FPGA and ASIC and report the differences in resource mapping, timing, power and energy.
-5. **Workload-level validation:** evaluate numerical error and task accuracy on selected fixed-point inference workloads, not only isolated multiplier vectors.
+## 3. Candidate contributions
 
-The final contribution list must be narrowed to what is demonstrably new and supported by measured results.
+1. Operand-magnitude-dependent error-bound estimation for reduced-precision products.
+2. Accumulation-window error-budget tracking with deterministic precision fallback.
+3. A precision-scalable datapath supporting INT4, INT8 and exact INT16.
+4. Formal properties for budget safety, transaction accounting and overflow handling.
+5. Cross-platform evaluation using one RTL specification on FPGA and ASIC.
+6. Workload-level analysis connecting arithmetic error to application accuracy.
 
-## 5. Scope
+These contributions must be compared with the closest prior work before being described as novel.
 
-### Included
-- Signed fixed-point arithmetic.
-- INT4, INT8 and INT16 operation modes.
-- Runtime mode selection.
-- Error-budget tracking and safety assertions.
-- MAC accumulation and overflow monitoring.
-- Parameterized vector length / accumulation window.
-- FPGA implementation.
-- ASIC synthesis, floorplanning, placement, CTS, routing, STA, DRC and LVS.
-- Workload and PPA comparisons.
+## 4. Research questions
 
-### Excluded from the first release
-- Full floating-point formats (FP8, BF16, FP16).
-- A complete neural-network accelerator / NoC.
-- Analog in-memory compute.
-- A fabricated silicon prototype.
-- Claims of measured silicon power without silicon measurement.
+- Does the error estimator conservatively bound actual product error for all supported input values, including signed endpoints and saturation?
+- Can the accumulated error bound be enforced for all accepted operations?
+- What is the estimator and controller overhead in area, timing and switching?
+- Does structural precision gating reduce post-route dynamic power against an exact baseline?
+- How does the design scale with accumulation length and parallel MAC lanes?
+- How well does the arithmetic bound predict end-to-end inference error?
 
-## 6. Research questions
-
-- Does the error-budget controller preserve its bound for all supported operand values and mode transitions?
-- What is the area, timing and switching overhead of the estimator and controller?
-- Does structural precision gating reduce post-route dynamic power relative to a fixed INT16 baseline?
-- How does the design scale with accumulation length and channel count?
-- How do FPGA and ASIC implementations differ?
-- Does the arithmetic error bound predict application-level inference degradation adequately?
-
-## 7. Required baselines
+## 5. Required baselines
 
 - B0: exact INT16 MAC.
 - B1: fixed INT8 MAC.
 - B2: fixed INT4 MAC.
-- B3: conventional runtime precision selection without cumulative error tracking.
-- B4: proposed error-budgeted precision selection.
+- B3: selectable precision without an accumulation-level error budget.
+- B4: proposed error-budgeted precision controller.
 
-All baselines must use the same operand traces, accumulation lengths, clock targets and evaluation methodology.
+All comparisons must use the same operand traces, accumulation lengths, clock targets and measurement methodology.
+
+## 6. Scope
+
+### Included
+- Signed fixed-point arithmetic.
+- INT4, INT8 and INT16 modes.
+- Runtime precision selection.
+- Product-error estimation and accumulation-budget tracking.
+- MAC accumulation and overflow detection.
+- Parameterized accumulation length and lane count.
+- Simulation, SVA and formal checks.
+- FPGA implementation.
+- ASIC synthesis, floorplanning, placement, CTS, routing, STA, DRC and LVS.
+- Reproducible workload and PPA comparisons.
+
+### Excluded from the first implementation
+- Floating-point formats (FP8, BF16, FP16).
+- A full neural-network accelerator / NoC.
+- Analog in-memory compute.
+- Fabricated silicon.
+- Claims of measured silicon power without a fabricated and measured chip.
+
+## 7. Novelty gate — mandatory
+
+Existing literature already includes adaptive-precision MACs, energy-aware configurable MACs, overflow-driven dynamic precision scaling, and approximate MACs designed to control cumulative error. The candidate idea may overlap with these works.
+
+Before committing to the final research claim:
+1. Read the full text of the closest papers, especially their precision-selection algorithms and error guarantees.
+2. Search IEEE Xplore, ACM Digital Library, Scopus/Web of Science, Google Scholar, arXiv, patents and public RTL repositories.
+3. Build a feature-by-feature comparison matrix.
+4. State the exact difference from the closest work in one falsifiable paragraph.
+5. If equivalent error-budget enforcement already exists, revise the contribution before scaling RTL development.
 
 ## 8. Go / no-go criteria
 
-Do not commit to a publication novelty claim until:
-- A systematic search of papers, theses, patents and open-source implementations is complete.
-- The exact difference from the closest prior work is written in one falsifiable paragraph.
+Proceed to full RTL only after:
+- The novelty gap is defensible.
 - The mathematical bound is independently checked.
-- A small RTL prototype demonstrates that the controller does not invalidate the bound.
-- Synthesis indicates that the proposed gating structure is physically meaningful.
+- A small reference model passes exhaustive boundary and randomized tests.
+- The expected controller/datapath overhead is plausible.
+- A measurable physical-design advantage can be tested.
 
-If the novelty overlaps substantially with prior work, revise the contribution before scaling implementation.
+Do not use “first,” “novel” or “state of the art” in a paper until supported by the completed review.
