@@ -1,0 +1,54 @@
+name: APEX-MAC checks
+
+on:
+  push:
+    branches:
+      - main
+      - research/**
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  reference-model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run reference-model tests
+        run: python -m unittest discover -s tests -v
+
+  rtl-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+      - name: Compile and simulate directed + randomized RTL tests
+        run: make rtl-test
+      - name: Archive RTL activity traces and toggle report
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-mac-rtl-activity
+          path: build/activity/
+          if-no-files-found: error
+
+  generic-synthesis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Yosys
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yosys
+      - name: Run generic synthesis baseline
+        run: bash scripts/run_generic_synth.sh
+      - name: Archive generic synthesis reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-mac-generic-synthesis
+          path: reports/generic-synth/
+          if-no-files-found: error
